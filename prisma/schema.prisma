@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ─── better-auth tables ────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  firstname     String    @default("")
+  lastname      String    @default("")
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  phone         String?
+  address       String?
+  birthdate     DateTime?
+  isAdmin       Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts     Account[]
+  sessions     Session[]
+  bankAccounts BankAccount[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ─── Métier bancaire ────────────────────────────────────────────────────────
+
+model BankAccount {
+  id        String          @id @default(cuid())
+  userId    String
+  iban      String          @unique
+  type      String          // "COURANT" | "LIVRET_A" | "PEL"
+  balance   Float           @default(0)
+  isBlocked Boolean         @default(false)
+  createdAt DateTime        @default(now())
+
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sentTransactions     Transaction[] @relation("SentTransactions")
+  receivedTransactions Transaction[] @relation("ReceivedTransactions")
+}
+
+model Transaction {
+  id            String   @id @default(cuid())
+  fromAccountId String?
+  toAccountId   String?
+  amount        Float
+  type          String   // "DEPOSIT" | "WITHDRAWAL" | "TRANSFER"
+  description   String?
+  createdAt     DateTime @default(now())
+
+  fromAccount BankAccount? @relation("SentTransactions", fields: [fromAccountId], references: [id])
+  toAccount   BankAccount? @relation("ReceivedTransactions", fields: [toAccountId], references: [id])
+}
